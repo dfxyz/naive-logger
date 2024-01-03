@@ -11,7 +11,7 @@ const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%6f%z";
 
 /// Initialize the logger with the given config.
 /// On success, a logging thread will be spawned and a drop guard will be returned.
-pub fn init(conf: &Config) -> std::io::Result<DropGuard> {
+pub fn init(conf: &Config) -> Result<DropGuard, String> {
     check_config(conf)?;
 
     if !conf.stdout.enable && !conf.file.enable {
@@ -33,9 +33,7 @@ pub fn init(conf: &Config) -> std::io::Result<DropGuard> {
                 .create(true)
                 .append(true)
                 .open(&conf.file.filename)
-                .map_err(|e| {
-                    std::io::Error::new(e.kind(), format!("failed to open the log file: {}", e))
-                })?;
+                .map_err(|e| format!("failed to open the log file: {}", e))?;
             Some(FileOutput {
                 inner: Some(f),
                 filename: conf.file.filename.clone(),
@@ -63,25 +61,16 @@ pub fn init(conf: &Config) -> std::io::Result<DropGuard> {
     })
 }
 
-fn check_config(conf: &Config) -> std::io::Result<()> {
+fn check_config(conf: &Config) -> Result<(), String> {
     if conf.file.enable {
         if conf.file.filename.trim().is_empty() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "file output is enabled but 'file.filename' is empty",
-            ));
+            return Err("file output is enabled but 'file.filename' is empty".to_string());
         }
         if conf.file.rotate_size == 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "file output is enabled but 'file.rotate_size' is 0",
-            ));
+            return Err("file output is enabled but 'file.rotate_size' is 0".to_string());
         }
         if conf.file.max_rotated_num == 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "file output is enabled but 'file.max_rotated_num' is 0",
-            ));
+            return Err("file output is enabled but 'file.max_rotated_num' is 0".to_string());
         }
     }
     Ok(())
