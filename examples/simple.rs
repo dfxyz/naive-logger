@@ -1,4 +1,4 @@
-use log::{debug, error, info, LevelFilter, trace, warn};
+use log::{debug, error, info, trace, warn, LevelFilter};
 
 fn main() {
     let config = naive_logger::Config {

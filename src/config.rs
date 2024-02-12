@@ -64,14 +64,23 @@ where
         type Value = u64;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "a number or a string with number and unit suffix")
+            write!(
+                formatter,
+                "a number or a string with number and unit suffix"
+            )
         }
 
-        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> where E: serde::de::Error {
+        fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
             Ok(v)
         }
 
-        fn visit_string<E>(self, v: String) -> Result<Self::Value, E> where E: serde::de::Error {
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
             let mut s = v.trim();
             let shift;
             if s.ends_with('k') || s.ends_with('K') {

@@ -6,7 +6,7 @@ edition = "2021"
 license = "MIT"
 
 [package.metadata.docs.rs]
-features = ["serde_support"]
+features = ["serde_support", "kv"]
 
 [dependencies]
 log = "0.4"
@@ -20,10 +20,12 @@ optional = true
 
 [features]
 serde_support = ["serde", "log/serde"]
+kv = ["log/kv_unstable"]
 
 [dev-dependencies]
 toml = "0.8"
+kv-log-macro = "1"
 
 [[example]]
 name = "naive"
-required-features = ["serde_support"]
+required-features = ["serde_support", "kv"]

@@ -1,10 +1,8 @@
+use std::fmt::Display;
 use std::io::{Seek, Write};
 
-pub use config::Config;
-pub use config::FileConfig;
-pub use config::StdoutConfig;
-
 mod config;
+pub use config::{Config, FileConfig, StdoutConfig};
 
 const CHANNEL_CAPACITY: usize = 1024;
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%6f%z";
@@ -78,14 +76,36 @@ fn check_config(conf: &Config) -> Result<(), String> {
 
 /// Carries a request from others to the logging thread.
 enum Message {
-    Payload {
-        datetime: chrono::DateTime<chrono::Local>,
-        level: log::Level,
-        target: String,
-        desc: String,
-    },
+    Payload(LogPayload),
     Flush,
     Close,
+}
+
+struct LogPayload {
+    datetime: chrono::DateTime<chrono::Local>,
+    level: log::Level,
+    target: String,
+    desc: String,
+    #[cfg(feature = "kv")]
+    kv: KeyValuePairs,
+}
+
+impl Display for LogPayload {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{datetime}|{level}|{target}|{desc}",
+            datetime = self.datetime.format(DATETIME_FORMAT),
+            level = self.level,
+            target = self.target,
+            desc = self.desc
+        )?;
+        #[cfg(feature = "kv")]
+        for (k, v) in &self.kv.0 {
+            write!(f, "|{k}={v}", k = k, v = v)?;
+        }
+        Ok(())
+    }
 }
 
 /// If dropped, send a close message to the logging thread and join it.
@@ -125,13 +145,17 @@ impl log::Log for Producer {
             let level = record.level();
             let target = record.target().to_string();
             let desc = record.args().to_string();
+            #[cfg(feature = "kv")]
+            let kv = KeyValuePairs::from(record.key_values());
             self.tx
-                .send(Message::Payload {
+                .send(Message::Payload(LogPayload {
                     datetime,
                     level,
                     target,
                     desc,
-                })
+                    #[cfg(feature = "kv")]
+                    kv,
+                }))
                 .expect("channel closed unexpectedly");
         }
     }
@@ -153,14 +177,9 @@ impl Consumer {
     fn run(mut self) {
         while let Ok(msg) = self.rx.recv() {
             match msg {
-                Message::Payload {
-                    datetime,
-                    level,
-                    target,
-                    desc,
-                } => {
-                    let datetime = datetime.format(DATETIME_FORMAT);
-                    let s = format!("{datetime}|{level}|{target}|{desc}");
+                Message::Payload(payload) => {
+                    let level = payload.level;
+                    let s = payload.to_string();
                     if let Some(stdout) = self.stdout.as_mut() {
                         stdout.log(level, s.as_str()).unwrap();
                     }
@@ -265,5 +284,27 @@ impl FileOutput {
     #[inline]
     fn flush(&mut self) -> std::io::Result<()> {
         self.inner()?.flush()
+    }
+}
+
+#[cfg(feature = "kv")]
+struct KeyValuePairs(Vec<(String, String)>);
+#[cfg(feature = "kv")]
+impl<'kvs> log::kv::Visitor<'kvs> for KeyValuePairs {
+    fn visit_pair(
+        &mut self,
+        key: log::kv::Key<'kvs>,
+        value: log::kv::Value<'kvs>,
+    ) -> Result<(), log::kv::Error> {
+        self.0.push((key.to_string(), value.to_string()));
+        Ok(())
+    }
+}
+#[cfg(feature = "kv")]
+impl From<&dyn log::kv::Source> for KeyValuePairs {
+    fn from(value: &dyn log::kv::Source) -> Self {
+        let mut kv = KeyValuePairs(Vec::new());
+        value.visit(&mut kv).unwrap();
+        kv
     }
 }
