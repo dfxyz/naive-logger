@@ -81,8 +81,7 @@ enum Message {
     Payload {
         datetime: chrono::DateTime<chrono::Local>,
         level: log::Level,
-        file: String,
-        line: u32,
+        target: String,
         desc: String,
     },
     Flush,
@@ -124,15 +123,13 @@ impl log::Log for Producer {
         if self.enabled(record.metadata()) {
             let datetime = chrono::Local::now();
             let level = record.level();
-            let file = record.file().unwrap_or("<unknown>").to_string();
-            let line = record.line().unwrap_or(0);
+            let target = record.target().to_string();
             let desc = record.args().to_string();
             self.tx
                 .send(Message::Payload {
                     datetime,
                     level,
-                    file,
-                    line,
+                    target,
                     desc,
                 })
                 .expect("channel closed unexpectedly");
@@ -159,12 +156,11 @@ impl Consumer {
                 Message::Payload {
                     datetime,
                     level,
-                    file,
-                    line,
+                    target,
                     desc,
                 } => {
                     let datetime = datetime.format(DATETIME_FORMAT);
-                    let s = format!("{datetime}|{level}|{file}:{line}|{desc}");
+                    let s = format!("{datetime}|{level}|{target}|{desc}");
                     if let Some(stdout) = self.stdout.as_mut() {
                         stdout.log(level, s.as_str()).unwrap();
                     }

@@ -10,7 +10,7 @@ fn main() {
         file: naive_logger::FileConfig {
             enable: true,
             filename: "simple.log".to_string(),
-            rotate_size: 822,
+            rotate_size: 672,
             max_rotated_num: 4,
         },
     };

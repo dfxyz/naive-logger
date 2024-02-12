@@ -11,7 +11,7 @@ fn main() {
     [file]
     enable = true
     filename = "naive.log"
-    rotate_size = "822"
+    rotate_size = "662"
     max_rotated_num = 4
     "#;
     let conf = toml::from_str::<naive_logger::Config>(raw).unwrap();
