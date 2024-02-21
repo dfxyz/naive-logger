@@ -1,8 +1,9 @@
 use std::fmt::Display;
 use std::io::{Seek, Write};
 
-mod config;
 pub use config::{Config, FileConfig, StdoutConfig};
+
+mod config;
 
 const CHANNEL_CAPACITY: usize = 1024;
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%6f%z";
@@ -112,17 +113,16 @@ impl Display for LogPayload {
 pub struct DropGuard {
     inner: Option<DropGuardInner>,
 }
+
 struct DropGuardInner {
     tx: crossbeam_channel::Sender<Message>,
     jh: std::thread::JoinHandle<()>,
 }
+
 impl Drop for DropGuard {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.take() {
-            inner
-                .tx
-                .send(Message::Close)
-                .expect("channel closed unexpectedly");
+            let _ = inner.tx.send(Message::Close);
             inner.jh.join().expect("logging thread panicked");
         }
     }
@@ -133,6 +133,7 @@ struct Producer {
     tx: crossbeam_channel::Sender<Message>,
     level: log::LevelFilter,
 }
+
 impl log::Log for Producer {
     #[inline]
     fn enabled(&self, metadata: &log::Metadata) -> bool {
@@ -146,24 +147,20 @@ impl log::Log for Producer {
             let target = record.target().to_string();
             let desc = record.args().to_string();
             #[cfg(feature = "kv")]
-            let kv = KeyValuePairs::from(record.key_values());
-            self.tx
-                .send(Message::Payload(LogPayload {
-                    datetime,
-                    level,
-                    target,
-                    desc,
-                    #[cfg(feature = "kv")]
-                    kv,
-                }))
-                .expect("channel closed unexpectedly");
+                let kv = KeyValuePairs::from(record.key_values());
+            let _ = self.tx.send(Message::Payload(LogPayload {
+                datetime,
+                level,
+                target,
+                desc,
+                #[cfg(feature = "kv")]
+                kv,
+            }));
         }
     }
 
     fn flush(&self) {
-        self.tx
-            .send(Message::Flush)
-            .expect("channel closed unexpectedly");
+        let _ = self.tx.send(Message::Flush);
     }
 }
 
@@ -173,6 +170,7 @@ struct Consumer {
     stdout: Option<StandardOutput>,
     file: Option<FileOutput>,
 }
+
 impl Consumer {
     fn run(mut self) {
         while let Ok(msg) = self.rx.recv() {
@@ -202,10 +200,12 @@ impl Consumer {
         }
     }
 }
+
 struct StandardOutput {
     inner: std::io::Stdout,
     use_color: bool,
 }
+
 impl StandardOutput {
     fn log(&mut self, level: log::Level, s: &str) -> std::io::Result<()> {
         if self.use_color {
@@ -227,12 +227,14 @@ impl StandardOutput {
         self.inner.flush()
     }
 }
+
 struct FileOutput {
     inner: Option<std::fs::File>,
     filename: String,
     rotate_size: u64,
     max_rotated_num: u32,
 }
+
 impl FileOutput {
     #[inline]
     fn inner(&mut self) -> std::io::Result<&mut std::fs::File> {
@@ -289,6 +291,7 @@ impl FileOutput {
 
 #[cfg(feature = "kv")]
 struct KeyValuePairs(Vec<(String, String)>);
+
 #[cfg(feature = "kv")]
 impl<'kvs> log::kv::Visitor<'kvs> for KeyValuePairs {
     fn visit_pair(
@@ -300,6 +303,7 @@ impl<'kvs> log::kv::Visitor<'kvs> for KeyValuePairs {
         Ok(())
     }
 }
+
 #[cfg(feature = "kv")]
 impl From<&dyn log::kv::Source> for KeyValuePairs {
     fn from(value: &dyn log::kv::Source) -> Self {
