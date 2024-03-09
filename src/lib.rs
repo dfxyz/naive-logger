@@ -1,9 +1,16 @@
-use std::fmt::Display;
 use std::io::{Seek, Write};
+
+pub use log::log_enabled;
+
+#[cfg(not(feature = "kv"))]
+#[allow(unused_imports)]
+pub use log::{debug, error, info, trace, warn};
 
 pub use config::{Config, FileConfig, StdoutConfig};
 
 mod config;
+#[cfg(feature = "kv")]
+mod macros;
 
 const CHANNEL_CAPACITY: usize = 1024;
 const DATETIME_FORMAT: &str = "%Y-%m-%dT%H:%M:%S.%6f%z";
@@ -77,36 +84,9 @@ fn check_config(conf: &Config) -> Result<(), String> {
 
 /// Carries a request from others to the logging thread.
 enum Message {
-    Payload(LogPayload),
+    Payload { level: log::Level, data: String },
     Flush,
     Close,
-}
-
-struct LogPayload {
-    datetime: chrono::DateTime<chrono::Local>,
-    level: log::Level,
-    target: String,
-    desc: String,
-    #[cfg(feature = "kv")]
-    kv: KeyValuePairs,
-}
-
-impl Display for LogPayload {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{datetime}|{level}|{target}|{desc}",
-            datetime = self.datetime.format(DATETIME_FORMAT),
-            level = self.level,
-            target = self.target,
-            desc = self.desc
-        )?;
-        #[cfg(feature = "kv")]
-        for (k, v) in &self.kv.0 {
-            write!(f, "|{k}={v}", k = k, v = v)?;
-        }
-        Ok(())
-    }
 }
 
 /// If dropped, send a close message to the logging thread and join it.
@@ -142,20 +122,32 @@ impl log::Log for Producer {
 
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
-            let datetime = chrono::Local::now();
+            let datetime = chrono::Local::now().format(DATETIME_FORMAT);
             let level = record.level();
             let target = record.target().to_string();
             let desc = record.args().to_string();
+
+            #[allow(unused_mut)]
+            let mut data = format!("{datetime}|{level}|{target}|{desc}");
+
             #[cfg(feature = "kv")]
-                let kv = KeyValuePairs::from(record.key_values());
-            let _ = self.tx.send(Message::Payload(LogPayload {
-                datetime,
-                level,
-                target,
-                desc,
-                #[cfg(feature = "kv")]
-                kv,
-            }));
+            {
+                struct Visitor<'a>(&'a mut String);
+                impl<'a, 'kvs> log::kv::Visitor<'kvs> for Visitor<'a> {
+                    fn visit_pair(
+                        &mut self,
+                        key: log::kv::Key<'kvs>,
+                        value: log::kv::Value<'kvs>,
+                    ) -> Result<(), log::kv::Error> {
+                        self.0.push_str(&format!("|{}={}", key, value));
+                        Ok(())
+                    }
+                }
+                let mut visitor = Visitor(&mut data);
+                let _ = record.key_values().visit(&mut visitor);
+            }
+
+            let _ = self.tx.send(Message::Payload { level, data });
         }
     }
 
@@ -175,14 +167,12 @@ impl Consumer {
     fn run(mut self) {
         while let Ok(msg) = self.rx.recv() {
             match msg {
-                Message::Payload(payload) => {
-                    let level = payload.level;
-                    let s = payload.to_string();
+                Message::Payload { level, data } => {
                     if let Some(stdout) = self.stdout.as_mut() {
-                        stdout.log(level, s.as_str()).unwrap();
+                        stdout.log(level, data.as_str()).unwrap();
                     }
                     if let Some(file) = self.file.as_mut() {
-                        file.log(s.as_str()).unwrap();
+                        file.log(data.as_str()).unwrap();
                     }
                 }
                 Message::Flush => {
@@ -286,29 +276,5 @@ impl FileOutput {
     #[inline]
     fn flush(&mut self) -> std::io::Result<()> {
         self.inner()?.flush()
-    }
-}
-
-#[cfg(feature = "kv")]
-struct KeyValuePairs(Vec<(String, String)>);
-
-#[cfg(feature = "kv")]
-impl<'kvs> log::kv::Visitor<'kvs> for KeyValuePairs {
-    fn visit_pair(
-        &mut self,
-        key: log::kv::Key<'kvs>,
-        value: log::kv::Value<'kvs>,
-    ) -> Result<(), log::kv::Error> {
-        self.0.push((key.to_string(), value.to_string()));
-        Ok(())
-    }
-}
-
-#[cfg(feature = "kv")]
-impl From<&dyn log::kv::Source> for KeyValuePairs {
-    fn from(value: &dyn log::kv::Source) -> Self {
-        let mut kv = KeyValuePairs(Vec::new());
-        value.visit(&mut kv).unwrap();
-        kv
     }
 }

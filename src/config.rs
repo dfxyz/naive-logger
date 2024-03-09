@@ -1,6 +1,6 @@
-#[cfg_attr(feature = "serde_support", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde_support", serde(deny_unknown_fields))]
-#[cfg_attr(feature = "serde_support", serde(default))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct Config {
     pub level: log::LevelFilter,
     pub stdout: StdoutConfig,
@@ -16,8 +16,8 @@ impl Default for Config {
     }
 }
 
-#[cfg_attr(feature = "serde_support", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde_support", serde(default))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct StdoutConfig {
     pub enable: bool,
     pub use_color: bool,
@@ -31,15 +31,12 @@ impl Default for StdoutConfig {
     }
 }
 
-#[cfg_attr(feature = "serde_support", derive(serde::Deserialize))]
-#[cfg_attr(feature = "serde_support", serde(default))]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct FileConfig {
     pub enable: bool,
     pub filename: String,
-    #[cfg_attr(
-        feature = "serde_support",
-        serde(deserialize_with = "deserialize_rotate_size")
-    )]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_rotate_size"))]
     pub rotate_size: u64,
     pub max_rotated_num: u32,
 }
@@ -54,7 +51,7 @@ impl Default for FileConfig {
     }
 }
 
-#[cfg(feature = "serde_support")]
+#[cfg(feature = "serde")]
 fn deserialize_rotate_size<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -66,8 +63,19 @@ where
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
             write!(
                 formatter,
-                "a number or a string with number and unit suffix"
+                "a non-negative number or a string with non-negative number and unit suffix (k/K, m/M, g/G)"
             )
+        }
+
+        fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            if v < 0 {
+                Err(serde::de::Error::custom("negative value is not allowed"))
+            } else {
+                Ok(v as u64)
+            }
         }
 
         fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>

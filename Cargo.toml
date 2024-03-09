@@ -19,13 +19,12 @@ features = ["derive"]
 optional = true
 
 [features]
-serde_support = ["serde", "log/serde"]
-kv = ["log/kv_unstable"]
+serde = ["dep:serde", "log/serde"]
+kv = ["log/kv_unstable", "log/kv_unstable_std"]
 
 [dev-dependencies]
 toml = "0.8"
-kv-log-macro = "1"
 
 [[example]]
 name = "naive"
-required-features = ["serde_support", "kv"]
+required-features = ["serde", "kv"]
