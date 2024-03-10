@@ -133,7 +133,7 @@ impl log::Log for Producer {
             #[cfg(feature = "kv")]
             {
                 struct Visitor<'a>(&'a mut String);
-                impl<'a, 'kvs> log::kv::Visitor<'kvs> for Visitor<'a> {
+                impl<'a, 'kvs> log::kv::VisitSource<'kvs> for Visitor<'a> {
                     fn visit_pair(
                         &mut self,
                         key: log::kv::Key<'kvs>,

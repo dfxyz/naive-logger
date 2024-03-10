@@ -20,7 +20,7 @@ optional = true
 
 [features]
 serde = ["dep:serde", "log/serde"]
-kv = ["log/kv_unstable", "log/kv_unstable_std"]
+kv = ["log/kv_std"]
 
 [dev-dependencies]
 toml = "0.8"
