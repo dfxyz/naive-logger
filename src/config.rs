@@ -1,15 +1,17 @@
+pub use log::LevelFilter;
+
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct Config {
-    pub level: log::LevelFilter,
+    pub level: LevelFilter,
     pub stdout: StdoutConfig,
     pub file: FileConfig,
 }
 impl Default for Config {
     fn default() -> Self {
         Self {
-            level: log::LevelFilter::Info,
+            level: LevelFilter::Info,
             stdout: StdoutConfig::default(),
             file: FileConfig::default(),
         }
