@@ -40,6 +40,7 @@ pub struct ConsoleAppenderConfig {
 pub struct FileAppenderConfig {
     #[serde(flatten)]
     pub common: AppenderCommonProperties,
+    #[serde(deserialize_with = "super::util::deserialize_str_with_env_var")]
     pub path: PathBuf,
     #[serde(default, deserialize_with = "super::util::deserialize_file_size")]
     pub max_file_size: u64,
