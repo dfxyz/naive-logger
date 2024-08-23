@@ -18,7 +18,7 @@ const ANSI_COLOR_RESET: &str = "\x1b[0m";
 const ANSI_COLOR_RED: &str = "\x1b[31m";
 const ANSI_COLOR_GREEN: &str = "\x1b[32m";
 const ANSI_COLOR_YELLOW: &str = "\x1b[33m";
-const ANSI_COLOR_BLUE: &str = "\x1b[34m";
+const ANSI_COLOR_CYAN: &str = "\x1b[34m";
 const ANSI_COLOR_MAGENTA: &str = "\x1b[35m";
 
 fn level2color(level: log::Level) -> &'static str {
@@ -26,7 +26,7 @@ fn level2color(level: log::Level) -> &'static str {
         log::Level::Error => ANSI_COLOR_RED,
         log::Level::Warn => ANSI_COLOR_YELLOW,
         log::Level::Info => ANSI_COLOR_GREEN,
-        log::Level::Debug => ANSI_COLOR_BLUE,
+        log::Level::Debug => ANSI_COLOR_CYAN,
         log::Level::Trace => ANSI_COLOR_MAGENTA,
     }
 }

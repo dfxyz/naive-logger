@@ -188,7 +188,7 @@ The optional `pattern` field specifies the pattern to format the log message. It
   * `ERROR`: `\x1b[31m` (red)
   * `WARN`:  `\x1b[33m` (yellow)
   * `INFO`:  `\x1b[32m` (green)
-  * `DEBUG`: `\x1b[34m` (blue)
+  * `DEBUG`: `\x1b[36m` (cyan)
   * `TRACE`: `\x1b[35m` (magenta)
 * `{colorEnd}`: the escape sequence to end colorizing the message
 
