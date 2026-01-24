@@ -1,0 +1,12 @@
+[package]
+name = "naive-logger"
+description = "一个极简的Rust异步日志记录器"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.43"
+crossbeam-channel = "0.5.15"
+log = "0.4.29"
+parking_lot = "0.12.5"
+regex = "1.12.2"
